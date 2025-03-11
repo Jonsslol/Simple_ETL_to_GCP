@@ -75,7 +75,7 @@ def transform_json_to_newline_delimited(**kwargs):
 
 
 with DAG(
-    dag_id='gcp_full_pipeline',
+    dag_id='gcp_silver_layer',
     default_args=default_args,
     schedule_interval='@daily',
     catchup=False,
