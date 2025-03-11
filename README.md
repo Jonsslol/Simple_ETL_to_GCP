@@ -4,8 +4,9 @@ Este projeto implementa um pipeline de ETL (Extract, Transform, Load) usando o *
 
 O projeto é composto por duas DAGs principais:
 1. **`gcp_bronze_layer`**: Responsável pela coleta e armazenamento dos dados brutos.
-2. **`gcp_full_pipeline`**: Responsável pela transformação e exportação dos dados.
-
+2. **`gcp_silver_layer`**: Responsável pela transformação e exportação dos dados.
+3. **`gcp_gold_layer`**: Responsável pela agregação dos dados transformados.
+   
 ---
 
 ## **Funcionalidades**
@@ -20,7 +21,7 @@ O projeto é composto por duas DAGs principais:
 
 ---
 
-### **DAG `gcp_full_pipeline`**
+### **DAG `gcp_silver_layer`**
 1. **Carregamento de Dados:**
    - Carrega os dados brutos do GCS para o BigQuery.
 
@@ -82,7 +83,8 @@ O projeto é composto por duas DAGs principais:
 gcp_etl_pipeline/
 ├── dags/
 │   ├── gcp_bronze_layer.py    # DAG para a camada Bronze
-│   └── gcp_full_pipeline.py   # DAG para o pipeline completo
+│   ├── gcp_silver_layer.py    # DAG para a camada Prata
+│   └── gcp_gold_layer.py      # DAG para a camada Ouro
 ├── README.md                  # Documentação
 └── requirements.txt           # Dependências do projeto
 ```
@@ -108,7 +110,7 @@ gcp_etl_pipeline/
 ### **2. Executando as DAGs**
 
 1. **Ative as DAGs:**
-   - Na UI do Airflow, ative as DAGs `gcp_bronze_layer` e `gcp_full_pipeline`.
+   - Na UI do Airflow, ative as DAGs `gcp_bronze_layer` e `gcp_silver_layer`.
 
 2. **Execute as DAGs:**
    - Execute as DAGs manualmente ou aguarde a execução agendada.
@@ -131,7 +133,7 @@ gcp_etl_pipeline/
 
 ---
 
-### **DAG `gcp_full_pipeline`**
+### **DAG `gcp_silver_layer`**
 1. **Carregamento de Dados:**
    - Carrega os dados do GCS para a tabela `breweries_raw` no BigQuery.
 
@@ -141,6 +143,59 @@ gcp_etl_pipeline/
 
 3. **Exportação de Dados:**
    - Exporta os dados transformados para o GCS em formato **Parquet**.
+
+---
+
+### **DAG `gcp_gold_layer`**
+A DAG `gcp_gold_layer` cria uma visão agregada dos dados da camada Silver, respondendo à pergunta: "Quantas cervejarias existem por tipo (`brewery_type`) e localização (`state`)?".
+
+#### **Funcionalidades**
+
+- **Agregação de Dados:**
+  - Agrupa os dados da tabela `breweries_transformed` (camada Silver) por `brewery_type` e `state`.
+  - Conta o número de cervejarias para cada combinação de tipo e estado.
+
+- **Armazenamento dos Dados Agregados:**
+  - Salva o resultado em uma nova tabela no BigQuery chamada `breweries_aggregated`.
+
+- **Exportação dos Dados:**
+  - Exporta os dados agregados para o Google Cloud Storage em formato **Parquet**.
+
+#### **Fluxo da DAG**
+
+1. **Criar Tabela Agregada:**
+   - Executa uma consulta SQL no BigQuery para agregar os dados.
+   - Armazena o resultado na tabela `breweries_aggregated`.
+
+2. **Exportar Dados Agregados:**
+   - Exporta os dados da tabela `breweries_aggregated` para o GCS em formato **Parquet**.
+
+#### **Exemplo de Consulta SQL**
+A consulta SQL usada na DAG é a seguinte:
+
+```sql
+CREATE OR REPLACE TABLE `{PROJECT_ID}.{DATASET_NAME}.breweries_aggregated` AS
+SELECT
+    brewery_type,
+    state,
+    COUNT(*) AS total_breweries
+FROM
+    `{PROJECT_ID}.{DATASET_NAME}.breweries_transformed`
+GROUP BY
+    brewery_type, state
+ORDER BY
+    total_breweries DESC;
+```
+
+#### **Estrutura da Tabela Agregada**
+A tabela `breweries_aggregated` terá a seguinte estrutura:
+
+| brewery_type | state      | total_breweries |
+|-------------|-----------|----------------|
+| micro      | California | 150            |
+| nano       | Texas      | 80             |
+| brewpub    | New York   | 60             |
+
 
 ---
 
@@ -161,4 +216,5 @@ export GCP_REGION="us-central1"
 
 - **Nome**: João Quadros
 - **Email**: jvquadroscontatos@hotmail.com
+- **Linkedin**: www.linkedin.com/in/jquadros
 
